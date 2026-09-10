@@ -1,0 +1,8 @@
+series,sdg_indicator,name,unit,target_2030,target_type,direction
+SH_STA_MORT,3.1.1,Maternal mortality ratio,"per 100,000 live births",70,absolute,lower_is_better
+SH_STA_BRTC,3.1.2,Skilled birth attendance,% of births,,none,higher_is_better
+SH_DYN_MORT,3.2.1,Under-five mortality rate,"per 1,000 live births",25,absolute,lower_is_better
+SH_DYN_NMRT,3.2.2,Neonatal mortality rate,"per 1,000 live births",12,absolute,lower_is_better
+SH_TBS_INCD,3.3.2,Tuberculosis incidence,"per 100,000 population",,directional,lower_is_better
+SH_DTH_NCOM,3.4.1,NCD mortality (30-70),"probability, %",,relative_to_baseline,lower_is_better
+SP_DYN_ADKL,3.7.2,Adolescent birth rate,"per 1,000 women",,none,lower_is_better
