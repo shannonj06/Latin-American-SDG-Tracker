@@ -1,0 +1,122 @@
+.home {
+  padding: 2rem 1rem;
+  text-align: left;
+}
+
+.home h1 {
+  margin-bottom: 0;
+}
+
+.home h3 {
+  margin-top: 0.25rem;
+  font-weight: 400;
+}
+
+.home select {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  margin: 1rem 0 1.5rem;
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 150px;
+  flex: 1 1 150px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.card:hover,
+.card.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.card-label {
+  font-size: 0.8rem;
+}
+
+.card-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.card-status {
+  font-size: 0.85rem;
+}
+
+.card-status.target_achieved,
+.card-status.on_track {
+  color: #16a34a;
+}
+
+.card-status.off_track {
+  color: #dc2626;
+}
+
+.chart-box {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.chart-box h4 {
+  margin: 0 0 0.5rem;
+  color: var(--text-h);
+}
+
+.chart-box .unit {
+  font-weight: 400;
+  color: var(--text);
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+.chart .axis {
+  stroke: var(--border);
+}
+
+.chart .series {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart .target {
+  stroke: var(--text);
+  stroke-dasharray: 6 4;
+}
+
+.chart .label {
+  font-size: 12px;
+  fill: var(--text);
+}
+
+.source {
+  font-size: 0.8rem;
+  margin: 0.5rem 0 0;
+}
+
+.empty {
+  margin: 1rem 0;
+}
