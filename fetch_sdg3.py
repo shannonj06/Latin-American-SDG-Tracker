@@ -125,10 +125,12 @@ def parse_record(rec, series, iso3, country):
 
 
 def headline_rank(row):
-    """Lower is better. Prefer global-reporting rows, then both-sexes rows."""
+    """Lower is better. Prefer global-reporting rows, then both-sexes rows, then the headline age group."""
     reporting_ok = 0 if row["reporting_type"] in ("G", "") else 1
     sex_ok = 0 if row["sex"] in BOTH_SEXES else 1
-    return (reporting_ok, sex_ok)
+    # 3.7.2 reports 10-14 and 15-19 separately; 15-19 is the headline age group.
+    age_ok = 0 if row["age"] in ("_T", "15-19") else 1
+    return (reporting_ok, sex_ok, age_ok)
 
 
 def mark_headlines(rows):

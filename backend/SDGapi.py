@@ -19,8 +19,16 @@ def home():
 
 @app.get("/countries")
 def countries():
-    response = supabase.table("observations").select('iso3', 'country').execute()
-    unique_countries = {row["iso3"]: row["country"] for row in response.data}
+    # Supabase caps each request at 1000 rows, so page through the whole table.
+    unique_countries = {}
+    start, page = 0, 1000
+    while True:
+        response = supabase.table("observations").select('iso3', 'country').range(start, start + page - 1).execute()
+        for row in response.data:
+            unique_countries[row["iso3"]] = row["country"]
+        if len(response.data) < page:
+            break
+        start += page
 
     countries = [{"iso3": iso3, "country": name} for iso3, name in unique_countries.items()]
     countries.sort(key=lambda c: c["country"])
@@ -28,7 +36,7 @@ def countries():
 
 @app.get("/indicators")
 def indicators():
-    response = supabase.table("indicators").select('series', 'sdg_indicator', 'name', 'unit', 'target_2030').execute()
+    response = supabase.table("indicators").select('series', 'sdg_indicator', 'name', 'unit', 'target_2030', 'target_type', 'direction').execute()
     output = {}
     for row in response.data:
         output[row["series"]] = {
@@ -36,6 +44,8 @@ def indicators():
             'name': row["name"],
             'unit': row["unit"],
             'target_2030': row["target_2030"],
+            'target_type': row["target_type"],
+            'direction': row["direction"],
         }
     return output
 
@@ -48,7 +58,7 @@ def summary(iso3):
 def series(series, iso3):
     response = (
         supabase.table("observations")
-        .select('year', 'value', 'lower_bound', 'upper_bound', 'source')
+        .select('year', 'value', 'lower_bound', 'upper_bound', 'nature', 'source')
         .eq('series', series)
         .eq('iso3', iso3.upper())
         .eq('is_headline', True)
