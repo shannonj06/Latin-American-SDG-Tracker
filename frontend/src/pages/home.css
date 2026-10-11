@@ -276,3 +276,46 @@
   .country-pick select { min-width: 0; max-width: 11rem; }
   .panel { padding: 1rem; }
 }
+
+/* ---------- view tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-right: auto;
+  margin-left: 1.5rem;
+}
+
+.tabs button {
+  font: inherit;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.65);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+
+.tabs button:hover {
+  color: #fff;
+}
+
+.tabs button[aria-selected='true'] {
+  color: #fff;
+  border-bottom-color: var(--accent);
+}
+
+.tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.country-pick[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; }
+  .tabs { order: 3; width: 100%; margin: 0; }
+}

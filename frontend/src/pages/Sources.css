@@ -1,0 +1,76 @@
+.sources a {
+  color: var(--text-h);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.sources a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.source-line {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.source-line + .source-line {
+  margin-top: 0.35rem;
+}
+
+.raw-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+}
+
+.citation {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+}
+
+.citation-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.citation p {
+  font-size: 0.82rem;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.text-button {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-h);
+  background: none;
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+
+.text-button:hover {
+  border-color: var(--muted);
+}
+
+.more-sources {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.more-sources summary {
+  cursor: pointer;
+  color: var(--text-h);
+  width: fit-content;
+}
+
+.more-sources .source-line {
+  margin-top: 0.25rem;
+}

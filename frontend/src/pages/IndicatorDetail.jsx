@@ -1,16 +1,7 @@
 import { useState } from 'react';
-import { TREND_LABEL, fmt, signed } from './format.js';
+import Sources from './Sources.jsx';
+import { NATURE_LABEL, TREND_LABEL, fmt, niceTicks, signed } from './format.js';
 import './IndicatorDetail.css';
-
-// UN "Nature" attribute on each observation.
-const NATURE_LABEL = {
-  C: 'Country data',
-  CA: 'Country data, adjusted',
-  E: 'Estimated',
-  M: 'Modelled',
-  G: 'Global monitoring',
-  N: 'Non-relevant',
-};
 
 const TARGET_YEAR = 2030;
 const WINDOW_START = 2015;
@@ -48,28 +39,15 @@ function fitLine(points) {
   return (year) => my + slope * (year - mx);
 }
 
-function niceTicks(max, count = 4) {
-  if (max <= 0) return [0, 1];
-  const raw = max / count;
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
-  const ticks = [];
-  for (let t = 0; t < max + step * 0.999; t += step) ticks.push(+t.toFixed(10));
-  return ticks;
-}
-
-function IndicatorDetail({ row, info, country, data, loading }) {
+function IndicatorDetail({ row, info, country, iso3, data, loading, onCompare }) {
   const points = data.filter((d) => d.value != null);
   const windowPts = points.filter((d) => d.year >= (row.window_start ?? WINDOW_START));
-  const hasTarget = row.target_value != null;
 
   // Data availability: which years since 2015 are missing, and what kind of data it is.
   const lastYear = row.window_end ?? points.at(-1)?.year;
   const haveYears = new Set(windowPts.map((d) => d.year));
   const missing = [];
   for (let y = WINDOW_START; lastYear && y <= lastYear; y++) if (!haveYears.has(y)) missing.push(y);
-  const natures = [...new Set(points.map((d) => d.nature).filter(Boolean))];
-  const source = points.find((d) => d.source)?.source;
 
   const betterWhen = info.direction === 'lower_is_better' ? 'Lower is better' : 'Higher is better';
 
@@ -77,8 +55,16 @@ function IndicatorDetail({ row, info, country, data, loading }) {
     <section className={`detail${loading ? ' loading' : ''}`} aria-live="polite">
       <div className="panel">
       <header className="detail-head">
-        <h2>{info.name}</h2>
-        <p className="detail-sub">SDG {info.sdg_indicator} · {country} · {info.unit}</p>
+        <div className="detail-title">
+          <h2>{info.name}</h2>
+          {onCompare && (
+            <button type="button" className="text-button" onClick={onCompare}>Compare with other countries →</button>
+          )}
+        </div>
+        <p className="detail-sub">
+          SDG {info.sdg_indicator} · {country} · {info.unit}
+          {points.length > 0 && ` · latest data ${points.at(-1).year}`}
+        </p>
       </header>
 
       <div className="stats">
@@ -115,6 +101,8 @@ function IndicatorDetail({ row, info, country, data, loading }) {
       </div>
       </div>
 
+      <TargetProgress row={row} info={info} lastYear={lastYear} />
+
       <div className="panel">
         <h3 className="panel-title">History and trend</h3>
         <TrendChart points={points} windowPts={windowPts} row={row} info={info} />
@@ -125,17 +113,9 @@ function IndicatorDetail({ row, info, country, data, loading }) {
         <div className="panel">
           <h3 className="panel-title">About this indicator</h3>
           <dl className="meta">
-            <dt>Indicator</dt><dd>SDG {info.sdg_indicator} · {info.name}</dd>
-            <dt>Unit</dt><dd>{info.unit}</dd>
             <dt>Direction</dt><dd>{betterWhen}</dd>
             <dt>2030 target</dt><dd>{targetText(info, row)}</dd>
-            {hasTarget && (
-              <>
-                <dt>Target status</dt>
-                <dd>{row.status.replaceAll('_', ' ')}{row.year_target_met ? ` · met ${row.year_target_met <= lastYear ? 'in' : 'projected by'} ${row.year_target_met}` : ''}</dd>
-              </>
-            )}
-            <dt>Series code</dt><dd><code>{row.series}</code></dd>
+            <dt>Confidence</dt><dd>{row.confidence} (trend fit since 2015)</dd>
           </dl>
         </div>
         <div className="panel">
@@ -148,8 +128,6 @@ function IndicatorDetail({ row, info, country, data, loading }) {
               {row.n_obs} of {lastYear ? lastYear - WINDOW_START + 1 : 0} years
               {missing.length > 0 && <span className="muted"> · missing {missing.join(', ')}</span>}
             </dd>
-            <dt>Data type</dt><dd>{natures.map((n) => NATURE_LABEL[n] ?? n).join(', ') || '–'}</dd>
-            <dt>Source</dt><dd className="source-text">{source ?? '–'}</dd>
           </dl>
           {row.confidence === 'low' && (
             <p className="caveat">
@@ -161,7 +139,110 @@ function IndicatorDetail({ row, info, country, data, loading }) {
           <DataTable points={points} />
         </div>
       </div>
+
+      <Sources
+        series={row.series}
+        info={info}
+        observations={points}
+        countries={[{ iso3, country }]}
+        computedAt={row.computed_at}
+      />
     </section>
+  );
+}
+
+const STATUS_HEADLINE = {
+  target_achieved: 'Target achieved',
+  on_track: 'On track',
+  off_track: 'Off track',
+  insufficient_data: 'Too little data to project',
+};
+
+// Signed so that a positive number always means "moving toward the target".
+const toward = (change, info) => (change == null ? null : info.direction === 'lower_is_better' ? -change : change);
+
+function TargetProgress({ row, info, lastYear }) {
+  // No numeric target: no verdict. Show where the country stands instead.
+  if (row.target_value == null) {
+    const above = row.gap_to_median > 0;
+    const better = info.direction === 'lower_is_better' ? !above : above;
+    return (
+      <div className="panel target no-target">
+        <h3 className="panel-title">2030 target</h3>
+        <p className="target-headline">No numeric 2030 target</p>
+        <p className="target-explain">
+          {info.target_type === 'directional'
+            ? `The UN asks countries to ${info.direction === 'lower_is_better' ? 'reduce' : 'increase'} this indicator but sets no number to reach, so there is no on-track verdict.`
+            : 'The UN sets no number to reach for this indicator, so there is no on-track verdict.'}{' '}
+          Trend and regional position are shown instead.
+        </p>
+        <div className="figures">
+          <Figure label="Trend since 2015">
+            <span className={`status ${row.classification}`}>{TREND_LABEL[row.classification]}</span>
+          </Figure>
+          <Figure label={`Regional rank${row.comparison_year ? ` (${row.comparison_year})` : ''}`}>
+            {row.rank ? `#${row.rank} of ${row.of_n}` : '–'}
+          </Figure>
+          <Figure label="Regional median">{fmt(row.regional_median)}</Figure>
+          <Figure label="Gap to median">
+            {row.gap_to_median == null ? '–' : signed(row.gap_to_median)}
+            {row.gap_to_median != null && <span className="fig-note">{better ? 'better' : 'worse'} than median</span>}
+          </Figure>
+        </div>
+      </div>
+    );
+  }
+
+  const met = row.status === 'target_achieved';
+  const projectable = row.projected_2030 != null;
+  const current = toward(row.annual_change, info);
+  const required = toward(row.required_annual_change, info);
+  const base = row.target_source?.startsWith('computed_from_') ? row.target_source.replace('computed_from_', '') : null;
+
+  return (
+    <div className="panel target">
+      <h3 className="panel-title">2030 target progress</h3>
+      <p className={`target-headline status ${row.status}`}>{STATUS_HEADLINE[row.status] ?? row.status}</p>
+      <p className="target-explain">
+        {met && `Already ${info.direction === 'lower_is_better' ? 'below' : 'above'} the target${row.year_target_met ? ` since ${row.year_target_met}` : ''}.`}
+        {row.status === 'on_track' && `At the current pace it reaches the target${row.year_target_met ? ` around ${row.year_target_met}` : ''}, before 2030.`}
+        {row.status === 'off_track' &&
+          (row.year_target_met && row.year_target_met > lastYear
+            ? `At the current pace the target is reached around ${row.year_target_met}, after 2030.`
+            : 'At the current pace the target is not reached.')}
+        {row.status === 'insufficient_data' && `Needs at least 5 data points since 2015 to project, has ${row.n_obs}.`}
+      </p>
+      <div className="figures">
+        <Figure label="Target value">
+          {fmt(row.target_value)}
+          <span className="fig-note">{base ? `⅓ below the ${base} value` : 'UN target'}</span>
+        </Figure>
+        <Figure label={`Current gap (${row.window_end ?? '–'})`}>
+          {met ? 'None' : signed(row.gap_to_target)}
+          <span className="fig-note">{met ? `${fmt(Math.abs(row.gap_to_target))} past the target` : `${fmt(row.last_value)} now`}</span>
+        </Figure>
+        <Figure label="Projected 2030">
+          {projectable ? fmt(row.projected_2030) : '–'}
+          <span className="fig-note">{projectable ? 'at the fitted pace' : 'not enough data'}</span>
+        </Figure>
+        <Figure label="Required change per year">
+          {met ? '–' : signed(row.required_annual_change, 2)}
+          <span className="fig-note">
+            {met ? 'target already met' : current == null ? 'current pace unknown' : `current ${signed(row.annual_change, 2)}`}
+            {!met && current != null && required != null && current < required && <span className="shortfall"> · too slow</span>}
+          </span>
+        </Figure>
+      </div>
+    </div>
+  );
+}
+
+function Figure({ label, children }) {
+  return (
+    <div className="figure">
+      <div className="stat-label">{label}</div>
+      <div className="fig-value">{children}</div>
+    </div>
   );
 }
 
@@ -192,7 +273,7 @@ function TrendChart({ points, windowPts, row, info }) {
     hasTarget ? row.target_value : 0,
     projected ? row.projected_2030 : 0,
   );
-  const yTicks = niceTicks(yTop * 1.05);
+  const yTicks = niceTicks(yTop, 5);
   const yMax = yTicks.at(-1);
 
   const x = (year) => L + ((year - xMin) / (xMax - xMin || 1)) * (W - L - R);

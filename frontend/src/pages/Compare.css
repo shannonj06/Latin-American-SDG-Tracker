@@ -1,0 +1,307 @@
+.compare {
+  /* Comparison colors, validated with the dataviz palette checker against both surfaces. */
+  --c0: #2a78d6;
+  --c1: #eb6834;
+  --c2: #1baf7a;
+  --c3: #eda100;
+  --series: var(--accent);
+  --ref: var(--muted);
+  --grid: var(--border);
+  --surface: var(--bg);
+
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .compare {
+    --c0: #3987e5;
+    --c1: #d95926;
+    --c2: #199e70;
+    --c3: #c98500;
+  }
+}
+
+/* ---------- controls ---------- */
+
+.compare-controls {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.control {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.control select {
+  font: inherit;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.6rem;
+  max-width: 28rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  font: inherit;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--muted);
+  color: var(--text-h);
+}
+
+.chip.on {
+  border-color: var(--text-h);
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chip:focus-visible,
+.control select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+.loading-note {
+  padding: 1rem 0;
+}
+
+/* ---------- chart ---------- */
+
+.key-median { border-top: 2px dashed var(--muted); }
+.chart .median { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 4; }
+.chart .dot-ring { stroke: var(--surface); stroke-width: 2; }
+
+.tt-year {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.tt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tt-key {
+  width: 12px;
+  height: 2px;
+  flex: none;
+}
+
+.tt-median {
+  height: 0;
+  border-top: 2px dashed var(--muted);
+}
+
+/* ---------- comparison table ---------- */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 0 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.cmp-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-h);
+  vertical-align: top;
+}
+
+.cmp-table th:first-child,
+.cmp-table td:first-child {
+  padding-left: 0;
+}
+
+.cmp-table .num {
+  text-align: right;
+}
+
+.cmp-table .strong {
+  font-weight: 600;
+}
+
+.country-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.cmp-note {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.cmp-note.good { color: var(--good); }
+.cmp-note.bad { color: var(--bad); }
+
+/* ---------- ranking + availability ---------- */
+
+.compare-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.rank-note {
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+.ranking {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ranking li {
+  display: grid;
+  grid-template-columns: 1.5rem 8.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  height: 22px;
+}
+
+.ranking li.picked {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.rank-no {
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rank-track {
+  position: relative;
+  height: 14px;
+}
+
+.rank-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--border);
+}
+
+.rank-median {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 0;
+  border-left: 1px solid var(--text-h);
+}
+
+.rank-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.avail {
+  display: grid;
+  grid-template-columns: 8rem 1fr 5rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  margin-bottom: 0.75rem;
+}
+
+.avail-row {
+  display: contents;
+}
+
+.avail-name {
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avail-years {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.avail-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 2px;
+}
+
+.avail-cells i {
+  height: 14px;
+  border: 1px solid var(--border);
+}
+
+.avail-cells i.has {
+  border-color: transparent;
+}
+
+.avail-count {
+  text-align: right;
+  color: var(--muted);
+  white-space: nowrap;
+}
