@@ -1,23 +1,19 @@
 import { useEffect, useState } from 'react';
 import Sources from './Sources.jsx';
 import { API, ISO2, MAX_COMPARE, NATURE_LABEL, STATUS_LABEL, TREND_LABEL, fmt, niceTicks, signed } from './format.js';
+import { trimPicks } from './route.js';
 import './Compare.css';
 
 const WINDOW_START = 2015;
 const TARGET_YEAR = 2030;
 
-// The home country plus two well-known neighbours, so the view opens with something to compare.
-function defaultPicks(home) {
-  const isos = [home, ...['BRA', 'MEX', 'CHL'].filter((c) => c !== home)].filter(Boolean).slice(0, 3);
-  return isos.map((iso3, slot) => ({ iso3, slot }));
-}
-
 const color = (slot) => `var(--c${slot})`;
 
-function Compare({ indicators, countries, initialSeries, homeIso3 }) {
-  const [series, setSeries] = useState(initialSeries);
+// The chosen indicator and countries live in the page's URL state (see route.js), so they
+// survive switching tabs, refreshing and the Back button.
+function Compare({ indicators, countries, series, picks, onSeries, onPicks, onOpenCountry }) {
   // Each pick keeps its color slot until it is removed: color follows the country, never its position.
-  const [picked, setPicked] = useState(() => defaultPicks(homeIso3));
+  const picked = picks.flatMap((iso3, slot) => (iso3 ? [{ iso3, slot }] : []));
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -41,13 +37,16 @@ function Compare({ indicators, countries, initialSeries, homeIso3 }) {
   }, [series]);
 
   const toggle = (iso3) => {
-    setPicked((prev) => {
-      if (prev.some((p) => p.iso3 === iso3)) return prev.filter((p) => p.iso3 !== iso3);
-      if (prev.length >= MAX_COMPARE) return prev;
-      const used = new Set(prev.map((p) => p.slot));
-      const slot = [...Array(MAX_COMPARE).keys()].find((s) => !used.has(s));
-      return [...prev, { iso3, slot }];
-    });
+    const next = [...picks];
+    const at = next.indexOf(iso3);
+    if (at >= 0) next[at] = null;
+    else if (picked.length >= MAX_COMPARE) return;
+    else {
+      const free = next.indexOf(null);
+      if (free >= 0) next[free] = iso3;
+      else next.push(iso3);
+    }
+    onPicks(trimPicks(next));
   };
 
   const info = indicators[series] ?? {};
@@ -62,7 +61,7 @@ function Compare({ indicators, countries, initialSeries, homeIso3 }) {
       <div className="panel compare-controls">
         <div className="control">
           <label htmlFor="cmp-indicator" className="stat-label">Indicator</label>
-          <select id="cmp-indicator" value={series ?? ''} onChange={(e) => setSeries(e.target.value)}>
+          <select id="cmp-indicator" value={series ?? ''} onChange={(e) => onSeries(e.target.value)}>
             {ordered.map(([code, ind]) => (
               <option key={code} value={code}>{ind.sdg_indicator} · {ind.name}</option>
             ))}
@@ -105,13 +104,14 @@ function Compare({ indicators, countries, initialSeries, homeIso3 }) {
           series={series}
           picked={picked}
           nameOf={nameOf}
+          onOpenCountry={onOpenCountry}
         />
       )}
     </section>
   );
 }
 
-function CompareBody({ data, info, series, picked, nameOf }) {
+function CompareBody({ data, info, series, picked, nameOf, onOpenCountry }) {
   const summaryBy = Object.fromEntries(data.summary.map((r) => [r.iso3, r]));
   const obsBy = {};
   for (const o of data.observations) if (o.value != null) (obsBy[o.iso3] ??= []).push(o);
@@ -147,7 +147,8 @@ function CompareBody({ data, info, series, picked, nameOf }) {
           <div className="panel">
             <h3 className="panel-title">Latest comparable values</h3>
             <ValuesTable picked={picked} summaryBy={summaryBy} obsBy={obsBy} nameOf={nameOf} cmpYear={cmpYear}
-              cmpMedian={cmpMedian} info={info} />
+              cmpMedian={cmpMedian} info={info} onOpenCountry={onOpenCountry} />
+            <p className="rank-note muted">Click a country name to open its full overview.</p>
           </div>
         </>
       )}
@@ -155,7 +156,8 @@ function CompareBody({ data, info, series, picked, nameOf }) {
       <div className="compare-cols">
         <div className="panel">
           <h3 className="panel-title">Regional ranking{cmpYear ? ` (${cmpYear})` : ''}</h3>
-          <Ranking summary={data.summary} picked={picked} nameOf={nameOf} median={cmpMedian} info={info} />
+          <Ranking summary={data.summary} picked={picked} nameOf={nameOf} median={cmpMedian} info={info}
+            onOpenCountry={onOpenCountry} />
         </div>
         {picked.length > 0 && (
           <div className="panel">
@@ -289,7 +291,7 @@ function TrendLines({ picked, obsBy, medians, info, nameOf, nCountries }) {
   );
 }
 
-function ValuesTable({ picked, summaryBy, obsBy, nameOf, cmpYear, cmpMedian, info }) {
+function ValuesTable({ picked, summaryBy, obsBy, nameOf, cmpYear, cmpMedian, info, onOpenCountry }) {
   const lowerBetter = info.direction === 'lower_is_better';
   return (
     <div className="table-scroll">
@@ -317,7 +319,7 @@ function ValuesTable({ picked, summaryBy, obsBy, nameOf, cmpYear, cmpMedian, inf
                   <span className="country-cell">
                     <i className="swatch" style={{ background: color(p.slot) }} />
                     {ISO2[p.iso3] && <img src={`https://flagcdn.com/w40/${ISO2[p.iso3]}.png`} alt="" width="18" height="12" />}
-                    {nameOf[p.iso3]}
+                    <CountryLink iso3={p.iso3} nameOf={nameOf} onOpen={onOpenCountry} />
                   </span>
                 </td>
                 <td className="num strong">{fmt(r.comparison_value)}</td>
@@ -345,7 +347,7 @@ function ValuesTable({ picked, summaryBy, obsBy, nameOf, cmpYear, cmpMedian, inf
   );
 }
 
-function Ranking({ summary, picked, nameOf, median, info }) {
+function Ranking({ summary, picked, nameOf, median, info, onOpenCountry }) {
   const ranked = summary.filter((r) => r.rank != null).sort((a, b) => a.rank - b.rank);
   const unranked = summary.filter((r) => r.rank == null);
   if (!ranked.length) return <p className="empty">Not enough countries report a common year to rank them.</p>;
@@ -364,7 +366,7 @@ function Ranking({ summary, picked, nameOf, median, info }) {
           return (
             <li key={r.iso3} className={slot != null ? 'picked' : ''} title={`${nameOf[r.iso3]}: ${fmt(r.comparison_value, 2)} ${info.unit}`}>
               <span className="rank-no">{r.rank}</span>
-              <span className="rank-name">{nameOf[r.iso3]}</span>
+              <span className="rank-name"><CountryLink iso3={r.iso3} nameOf={nameOf} onOpen={onOpenCountry} /></span>
               <span className="rank-track">
                 <span className="rank-bar" style={{ width: `${(r.comparison_value / max) * 100}%`, background: slot != null ? color(slot) : undefined }} />
                 {median != null && <span className="rank-median" style={{ left: `${(median / max) * 100}%` }} />}
@@ -378,6 +380,14 @@ function Ranking({ summary, picked, nameOf, median, info }) {
         <p className="rank-note muted">No value in the comparison year: {unranked.map((r) => nameOf[r.iso3]).join(', ')}.</p>
       )}
     </>
+  );
+}
+
+function CountryLink({ iso3, nameOf, onOpen }) {
+  return (
+    <button type="button" className="link-button" onClick={() => onOpen(iso3)} title={`Open ${nameOf[iso3]}'s overview`}>
+      {nameOf[iso3]}
+    </button>
   );
 }
 

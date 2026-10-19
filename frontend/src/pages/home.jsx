@@ -3,6 +3,7 @@ import banner from '../assets/health-banner.jpg';
 import Compare from './Compare.jsx';
 import IndicatorDetail from './IndicatorDetail.jsx';
 import { API, ISO2, TREND_LABEL, fmt } from './format.js';
+import { defaultPicks, readRoute, routeUrl } from './route.js';
 import './home.css';
 
 // no_numeric_target is never shown: the table leaves the target cell blank instead.
@@ -16,13 +17,23 @@ const STATUS_LABEL = {
 function HomePage() {
   const [countries, setCountries] = useState([]);
   const [indicators, setIndicators] = useState({});
-  const [iso3, setIso3] = useState('');
   const [summary, setSummary] = useState([]);
-  const [selected, setSelected] = useState(null);
   // Tagged with the country+indicator it belongs to, so a stale chart is never shown as current.
   const [series, setSeries] = useState({ key: null, data: [] });
   const [error, setError] = useState(null);
-  const [view, setView] = useState('overview');
+  // View, country, indicator and compared countries; mirrored in the URL (see route.js).
+  const [route, setRoute] = useState(readRoute);
+  const { view } = route;
+
+  // Back/forward restore the view the user was on.
+  useEffect(() => {
+    const onPop = (e) => setRoute(e.state ?? readRoute());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // An unknown or missing country in the URL falls back to the first one in the list.
+  const iso3 = countries.some((c) => c.iso3 === route.country) ? route.country : (countries[0]?.iso3 ?? '');
 
   // Load the dropdown options and indicator names once.
   useEffect(() => {
@@ -31,8 +42,6 @@ function HomePage() {
       .then((d) => {
         setError(null);
         setCountries(d.countries);
-        // Only default the country if none is picked yet; a late response must not undo the user's choice.
-        if (d.countries.length) setIso3((prev) => prev || d.countries[0].iso3);
       })
       .catch(() => setError(`Could not reach the API at ${API}. Is the backend running?`));
     fetch(`${API}/indicators`)
@@ -46,38 +55,57 @@ function HomePage() {
     if (!iso3) return;
     let cancelled = false; // ignore a slow response for a country the user already left
     fetch(`${API}/countries/${iso3}/summary`)
-      .then((r) => r.json())
+      .then(okJson)
       .then((d) => {
         if (cancelled) return;
         setSummary(d.summary);
-        // Keep the same indicator open when switching countries.
-        setSelected((prev) => (d.summary.some((r) => r.series === prev) ? prev : null));
-      });
+        setError(null);
+      })
+      .catch(() => !cancelled && setError("Could not load this country's indicators. Check that the backend is running, then refresh."));
     return () => {
       cancelled = true;
     };
   }, [iso3]);
 
   // Rows in SDG order (3.1.1, 3.1.2, ...); the first one is open by default.
+  // The chosen indicator stays open when switching countries, as long as the new country reports it.
   const sdgOrder = (row) => indicators[row.series]?.sdg_indicator ?? row.series;
   const ordered = [...summary].sort((a, b) => sdgOrder(a).localeCompare(sdgOrder(b), undefined, { numeric: true }));
-  const current = selected ?? ordered[0]?.series ?? null;
+  const current = summary.some((r) => r.series === route.indicator) ? route.indicator : (ordered[0]?.series ?? null);
 
   // Refetch the chart whenever the selected card or country changes.
   useEffect(() => {
     if (!iso3 || !current) return;
     let cancelled = false;
     fetch(`${API}/indicators/${current}/series?iso3=${iso3}`)
-      .then((r) => r.json())
-      .then((d) => !cancelled && setSeries({ key: `${iso3}/${current}`, data: d.data }));
+      .then(okJson)
+      .then((d) => !cancelled && setSeries({ key: `${iso3}/${current}`, data: d.data }))
+      .catch(() => !cancelled && setError('Could not load the chart for this indicator. Check that the backend is running, then refresh.'));
     return () => {
       cancelled = true;
     };
   }, [iso3, current]);
 
+  // Moves the app to a new view and records it in the URL. replace: true updates the current
+  // history entry instead of adding one (used for country chips, so Back skips over each click).
+  const navigate = (patch, { replace = false } = {}) => {
+    const next = { ...route, country: iso3, ...patch };
+    if (JSON.stringify(next) === JSON.stringify(route)) return;
+    window.history[replace ? 'replaceState' : 'pushState'](next, '', routeUrl(next));
+    setRoute(next);
+    if (!replace) window.scrollTo(0, 0);
+  };
+  const openCompare = () => navigate({ view: 'compare', indicator: current, picks: route.picks ?? defaultPicks(iso3) });
+
   const selectedRow = summary.find((row) => row.series === current);
   const selectedInfo = indicators[current] ?? {};
   const country = countries.find((c) => c.iso3 === iso3);
+
+  // Names each Back/forward history entry after what it shows.
+  useEffect(() => {
+    const place = view === 'compare' ? 'Compare countries' : country?.country;
+    document.title = place ? `${place} · SDG Tracker` : 'SDG Tracker';
+  }, [view, country]);
 
   const counts = summary.reduce((acc, row) => {
     acc[row.classification] = (acc[row.classification] ?? 0) + 1;
@@ -91,16 +119,16 @@ function HomePage() {
           SDG Tracker <span className="brand-sub">Latin America · Health</span>
         </span>
         <div className="tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={view === 'overview'} onClick={() => setView('overview')}>
+          <button type="button" role="tab" aria-selected={view === 'overview'} onClick={() => navigate({ view: 'overview' })}>
             Country overview
           </button>
-          <button type="button" role="tab" aria-selected={view === 'compare'} onClick={() => setView('compare')}>
+          <button type="button" role="tab" aria-selected={view === 'compare'} onClick={openCompare}>
             Compare countries
           </button>
         </div>
         <div className="country-pick" hidden={view !== 'overview'}>
           <label htmlFor="country" className="visually-hidden">Country</label>
-          <select id="country" value={iso3} onChange={(e) => setIso3(e.target.value)}>
+          <select id="country" value={iso3} onChange={(e) => navigate({ country: e.target.value })}>
             {countries.map((c) => (
               <option key={c.iso3} value={c.iso3}>{c.country}</option>
             ))}
@@ -140,7 +168,15 @@ function HomePage() {
         {error && <p className="error">{error}</p>}
 
         {view === 'compare' && countries.length > 0 && Object.keys(indicators).length > 0 && (
-          <Compare indicators={indicators} countries={countries} initialSeries={current} homeIso3={iso3} />
+          <Compare
+            indicators={indicators}
+            countries={countries}
+            series={indicators[route.indicator] ? route.indicator : current}
+            picks={route.picks ?? defaultPicks(iso3)}
+            onSeries={(s) => navigate({ indicator: s })}
+            onPicks={(picks) => navigate({ picks }, { replace: true })}
+            onOpenCountry={(c) => navigate({ view: 'overview', country: c })}
+          />
         )}
 
         {view === 'overview' && (
@@ -154,7 +190,7 @@ function HomePage() {
                 row={row}
                 info={indicators[row.series]}
                 active={row.series === current}
-                onSelect={() => setSelected(row.series)}
+                onSelect={() => navigate({ indicator: row.series })}
               />
             ))}
           </ul>
@@ -168,7 +204,7 @@ function HomePage() {
             iso3={iso3}
             data={series.data}
             loading={series.key !== `${iso3}/${current}`}
-            onCompare={() => setView('compare')}
+            onCompare={openCompare}
           />
         )}
         </>
@@ -178,6 +214,11 @@ function HomePage() {
       <footer className="credit">Data: UN SDG Global Database · Photo: Unsplash</footer>
     </div>
   );
+}
+
+function okJson(r) {
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
 }
 
 function Item({ row, info, active, onSelect }) {
